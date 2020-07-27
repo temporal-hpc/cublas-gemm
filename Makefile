@@ -1,2 +1,2 @@
 all: 
-	nvcc cublasGemm.cu -l cublas -Xcompiler -fopenmp -o prog
+	nvcc -O3 cublasGemm.cu -lcublas -lcblas -Xcompiler -fopenmp -o prog

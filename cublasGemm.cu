@@ -4,28 +4,36 @@
 #include <string.h>
 #include <iostream>
 #include <iomanip>
+#include <random>
+#include <cblas.h>
 #include <omp.h>
 
 #include <cuda.h>
 #include <cublas_v2.h>
 #include <cuda_fp16.h>
 
-#define ATYPE __half
-#define BTYPE __half
+#define LIM_CHECK_N 4096
+#define LIM_PRINT_N 32
+
+#define ATYPE float
+#define BTYPE float
 #define CTYPE float
 
 #include "tools.h"
 
+using namespace std;
+
 int main(int argc, char **argv) {
   cublasStatus_t status;
-  if(argc != 4){
-      fprintf(stderr, "run as ./prog dev n mathMode\n\n");
+  if(argc != 5){
+      fprintf(stderr, "run as ./prog dev nt n mathMode\n\n");
       printArgsInfo();
       return EXIT_FAILURE;
   }
   int dev = atoi(argv[1]);
-  int N = atoi(argv[2]);
-  int mode = atoi(argv[3]);
+  int nt = atoi(argv[2]);
+  int N = atoi(argv[3]);
+  int mode = atoi(argv[4]);
   // host pointers
   ATYPE *h_A;
   BTYPE *h_B;
@@ -39,10 +47,8 @@ int main(int argc, char **argv) {
   CTYPE beta = 0.0f;
   // number of elements
   unsigned long nelem = N * N;
-  int i;
   float error_norm;
   float ref_norm;
-  float diff;
   double t1, t2;
 
   cudaEvent_t start, stop;
@@ -50,6 +56,7 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   cudaSetDevice(dev);
+  omp_set_num_threads(nt);
   printf("CA Simulation (%i x %i)\n", N, N);
 
 
@@ -63,7 +70,7 @@ int main(int argc, char **argv) {
 
 
 
-  /* 2) Set the math mode */
+  /* 2) Set math mode */
   printf("Math Mode......................%s\n", cublasMathModesStr[mode]);
   status = cublasSetMathMode(handle, cublasMathModes[mode]);
   if (status != CUBLAS_STATUS_SUCCESS){
@@ -79,12 +86,9 @@ int main(int argc, char **argv) {
   h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
   printf("Filling matrices in Host......."); fflush(stdout);
   t1 = omp_get_wtime();
-  #pragma omp parallel for
-  for (i = 0; i < nelem; i++) {
-    h_A[i] = 0.001;
-    h_B[i] = 1.0;
-    h_C[i] = 0.001;
-  }
+  fillMatrixRand<ATYPE>(h_A, nelem);
+  fillMatrixRand<BTYPE>(h_B, nelem);
+  fillMatrixRand<CTYPE>(h_C, nelem);
   t2 = omp_get_wtime();
   printf("done: %f secs\n\n", t2-t1); fflush(stdout);
   print_matrix<ATYPE>(h_A, N, N, "MAT A");
@@ -131,11 +135,13 @@ int main(int argc, char **argv) {
 
 
   /* 6) GEMM -> CPU BASIC */
-  printf("[MANUAL] CPU GEMM.............."); fflush(stdout);
+  printf("[CBLAS] CPU GEMM.............."); fflush(stdout);
   t1 = omp_get_wtime();
-  cpuGemm(N, alpha, h_A, h_B, beta, h_C);
+  //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
+  cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N, alpha, h_A, N, h_B, N, beta, h_C, N);
   t2 = omp_get_wtime();
-  printf("done: %f secs\n", t2-t1); fflush(stdout);
+  double cpuTFLOPS = ((double)N*N*(2*N+3))/((t2-t1)*1000.0*1000.0*1000.0*1000.0);
+  printf("done: %f secs   [%f TFLOPS]\n", t2-t1, cpuTFLOPS); fflush(stdout);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (CPU)");
   h_C_ref = h_C;
 
@@ -144,7 +150,6 @@ int main(int argc, char **argv) {
   /* 7) GEMM -> GPU CUBLAS */
   printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
   cudaEventRecord(start);
-  //status = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha, d_A, N, d_B, N, &beta, d_C, N);
   status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
                           d_A, CUDA_R_16F, N,
                           d_B, CUDA_R_16F, N,
@@ -153,8 +158,8 @@ int main(int argc, char **argv) {
   cudaEventSynchronize(stop);
   float gputime_ms;
   cudaEventElapsedTime(&gputime_ms, start, stop);
-  printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, 
-          ((double)N*N*(2*N+3))/((gputime_ms/1000.0)*1000*1000*1000.0*1000.0)); fflush(stdout);
+  double gpuTFLOPS = ((double)N*N*(2*N+3))/((gputime_ms)*1000*1000.0*1000.0);
+  printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! kernel execution error.\n");
     return EXIT_FAILURE;
@@ -162,7 +167,7 @@ int main(int argc, char **argv) {
 
 
 
-  /* Allocate host memory for reading back the result from device memory */
+  /* 8) Allocate host memory for reading back the result from device memory */
   h_C = reinterpret_cast<CTYPE *>(malloc(nelem * sizeof(h_C[0])));
 
   if (h_C == 0) {
@@ -170,7 +175,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  /* Read the result back */
+  /* 9) Read the result back */
   status = cublasGetVector(nelem, sizeof(h_C[0]), d_C, 1, h_C, 1);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (GPU)");
 
@@ -179,25 +184,11 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  /* Check result against reference */
-  error_norm = 0;
-  ref_norm = 0;
+  /* 10) Check result against reference */
+  checkResult(h_C_ref, h_C, N, nelem, &error_norm, &ref_norm); 
 
-  for (i = 0; i < nelem; ++i) {
-    diff = (float)h_C_ref[i] - (float)h_C[i];
-    error_norm += diff * diff;
-    ref_norm += (float)h_C_ref[i] * (float)h_C_ref[i];
-  }
 
-  error_norm = static_cast<float>(sqrt(static_cast<double>(error_norm)));
-  ref_norm = static_cast<float>(sqrt(static_cast<double>(ref_norm)));
-
-  if (fabs(ref_norm) < 1e-7) {
-    fprintf(stderr, "!!!! reference norm is 0\n");
-    return EXIT_FAILURE;
-  }
-
-  /* Memory clean up */
+  /* 11) Memory clean up */
   free(h_A);
   free(h_B);
   free(h_C);
@@ -207,30 +198,19 @@ int main(int argc, char **argv) {
     fprintf(stderr, "!!!! memory free error (A)\n");
     return EXIT_FAILURE;
   }
-
   if (cudaFree(d_B) != cudaSuccess) {
     fprintf(stderr, "!!!! memory free error (B)\n");
     return EXIT_FAILURE;
   }
-
   if (cudaFree(d_C) != cudaSuccess) {
     fprintf(stderr, "!!!! memory free error (C)\n");
     return EXIT_FAILURE;
   }
 
-  /* Shutdown */
+  /* 12) Shutdown */
   status = cublasDestroy(handle);
-
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! shutdown error (A)\n");
     return EXIT_FAILURE;
-  }
-
-  if (error_norm / ref_norm < 1e-6f) {
-    printf("CUBLAS test passed.\n");
-    exit(EXIT_SUCCESS);
-  } else {
-    printf("CUBLAS test failed.\n");
-    exit(EXIT_FAILURE);
   }
 }
