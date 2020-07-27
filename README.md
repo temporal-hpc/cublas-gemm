@@ -16,15 +16,12 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 
 ## 4) Install:
 	1) Clone Repo:
-        ```console
         foo@bar:~$ git clone https://github.com/temporal-hpc/cublas-gemm
-        ```
 	2) Compile:
-        ```console
         foo@bar:~$ cd cublas-gemm
         foo@bar:~$ make
-        ```
 	3) Run (Run as ./prog for info on args):
-        ```
-            ./prog n mode
-        ```
+        ./prog n mode
+    4) Modify comopute modes:
+        Change the ATYPE, BTYPE, CTYPE defines and also the types in cublasGemmEx(..)
+        

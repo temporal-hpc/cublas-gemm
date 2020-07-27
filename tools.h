@@ -103,7 +103,7 @@ void fillMatrixRand(T *m, unsigned long nelem){
         int tid = omp_get_thread_num();
         int nt = omp_get_num_threads();
         std::mt19937 gen(rd()); 
-        std::uniform_real_distribution<> dis(-1.0, 1.0);
+        std::uniform_real_distribution<> dis(0.0, 1.0);
         long seg = (nelem+nt-1)/nt;
         long start = tid*seg;
         long end = start + seg;

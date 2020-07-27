@@ -152,8 +152,8 @@ int main(int argc, char **argv) {
   printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
   cudaEventRecord(start);
   status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
-                          d_A, CUDA_R_16F, N,
-                          d_B, CUDA_R_16F, N,
+                          d_A, CUDA_R_32F, N,
+                          d_B, CUDA_R_32F, N,
                           &beta, d_C, CUDA_R_32F, N, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
