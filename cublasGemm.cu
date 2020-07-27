@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
   float error_norm;
   float ref_norm;
   double t1, t2;
+  double TFLOP = 2.0*N*N*N * 1E-12;
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -135,12 +136,12 @@ int main(int argc, char **argv) {
 
 
   /* 6) GEMM -> CPU BASIC */
-  printf("[CBLAS] CPU GEMM.............."); fflush(stdout);
+  printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
   //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
   cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N, alpha, h_A, N, h_B, N, beta, h_C, N);
   t2 = omp_get_wtime();
-  double cpuTFLOPS = ((double)N*N*(2*N+3))/((t2-t1)*1000.0*1000.0*1000.0*1000.0);
+  double cpuTFLOPS = TFLOP/(t2-t1);
   printf("done: %f secs   [%f TFLOPS]\n", t2-t1, cpuTFLOPS); fflush(stdout);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (CPU)");
   h_C_ref = h_C;
@@ -158,7 +159,7 @@ int main(int argc, char **argv) {
   cudaEventSynchronize(stop);
   float gputime_ms;
   cudaEventElapsedTime(&gputime_ms, start, stop);
-  double gpuTFLOPS = ((double)N*N*(2*N+3))/((gputime_ms)*1000*1000.0*1000.0);
+  double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
   printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! kernel execution error.\n");
