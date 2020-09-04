@@ -1,9 +1,10 @@
-# CUBLAS GEMM Minimal Example
+# CUBLAS GEMM Minimal Example v1.1
 
 A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on GPUs.
 
 ## 1) Versions history:
-	- Version 1.0 (July 2020)
+    - v1.1 (September 2020)
+	- v1.0 (July 2020)
 
 ## 2) Requirements:
 	- Nvidia GPU supporting CUDA
@@ -16,7 +17,7 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 
 ## 4) Install and Compile:
 	a) Clone Repo:
-        foo@bar:~$ git clone https://github.com/temporal-hpc/cublas-gemm
+        git clone https://github.com/temporal-hpc/cublas-gemm
 	b) Compile:
         cd cublas-gemm
         make
