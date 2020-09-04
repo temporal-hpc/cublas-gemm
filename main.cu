@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
       printArgsInfo();
       return EXIT_FAILURE;
   }
+  float gputime_ms;
   int dev = atoi(argv[1]);
   int nt = atoi(argv[2]);
   int N = atoi(argv[3]);
@@ -62,11 +63,11 @@ int main(int argc, char **argv) {
   const char* dtypeBStr = dataTypesStr[hmap(bitsB)];
   const char* dtypeCStr = dataTypesStr[hmap(bitsC)];
 
+  cudaSetDevice(dev);
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
   cublasHandle_t handle;
-  cudaSetDevice(dev);
   omp_set_num_threads(nt);
   printf("MATMUL A x B = C (%i x %i)\nA FP%i (%s)\nB FP%i (%s)\nC FP%i (%s)\n\n", 
           N, N,  
@@ -165,21 +166,21 @@ int main(int argc, char **argv) {
 
   /* 6) GEMM -> GPU CUBLAS */
   printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
-  cudaEventRecord(start);
+  gpuErrchk(cudaEventRecord(start));
   status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
                                     d_A, dtypeA, N,
                                     d_B, dtypeB, N,
                           &beta,    d_C, dtypeC, N, cublasComputeTypes[comptype], CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  float gputime_ms;
-  cudaEventElapsedTime(&gputime_ms, start, stop);
-  double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
-  printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
-  if (status != CUBLAS_STATUS_SUCCESS) {
+  if(status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! kernel execution error.\n");
     return EXIT_FAILURE;
   }
+  gpuErrchk(cudaDeviceSynchronize());
+  gpuErrchk(cudaEventRecord(stop));
+  gpuErrchk(cudaEventSynchronize(stop));
+  gpuErrchk(cudaEventElapsedTime(&gputime_ms, start, stop));
+  double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
+  printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
 
 
 
