@@ -58,7 +58,11 @@ int main(int argc, char **argv) {
   cublasHandle_t handle;
   cudaSetDevice(dev);
   omp_set_num_threads(nt);
-  printf("CA Simulation (%i x %i)\n", N, N);
+  printf("MATMUL (%i x %i)  [A FP%i] x [B FP%i] = [C FP%i]\n", 
+          N, N,  
+          sizeof(ATYPE)*8,
+          sizeof(BTYPE)*8,
+          sizeof(CTYPE)*8);
 
 
 
@@ -82,26 +86,26 @@ int main(int argc, char **argv) {
 
 
   /* 3) Allocate and fill host memory for the matrices */
-  printf("Host mallocs h_A, h_B, h_C....."); fflush(stdout);
+  printf("Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
   h_A = (ATYPE*)(malloc(nelem * sizeof(h_A[0])));
   h_B = (BTYPE*)(malloc(nelem * sizeof(h_B[0])));
   h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
   printf("Filling matrices in Host......."); fflush(stdout);
   t1 = omp_get_wtime();
   fillMatrixRand<ATYPE>(h_A, nelem);
   fillMatrixRand<BTYPE>(h_B, nelem);
   fillMatrixRand<CTYPE>(h_C, nelem);
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
   print_matrix<ATYPE>(h_A, N, N, "MAT A");
   print_matrix<BTYPE>(h_B, N, N, "MAT B");
 
 
   /* 4) Allocate device memory for the matrices */
-  printf("Device mallocs d_A d_B d_C....."); fflush(stdout);
+  printf("Device mallocs A B C..........."); fflush(stdout);
   t1 = omp_get_wtime();
   if (cudaMalloc(reinterpret_cast<void **>(&d_A), nelem * sizeof(d_A[0])) != cudaSuccess) {
         fprintf(stderr, "!!!! device memory allocation error (allocate A)\n");
@@ -118,7 +122,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
 
 
 
@@ -147,8 +151,12 @@ int main(int argc, char **argv) {
 
 
 
+
+
+
+
   /* 6) GEMM -> GPU CUBLAS */
-  printf("\n[CUBLAS] GPU GEMM.............."); fflush(stdout);
+  printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
   cudaEventRecord(start);
   status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
                           d_A, CUDA_R_32F, N,
@@ -170,13 +178,13 @@ int main(int argc, char **argv) {
 
 
   /* 7) GEMM -> CPU BASIC */
-  printf("\n[CBLAS] CPU GEMM..............."); fflush(stdout);
+  printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
   //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
   cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N, alpha, h_A, N, h_B, N, beta, h_C, N);
   t2 = omp_get_wtime();
   double cpuTFLOPS = TFLOP/(t2-t1);
-  printf("done: %f secs   [%f TFLOPS]\n", t2-t1, cpuTFLOPS); fflush(stdout);
+  printf("done: %f secs   [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (CPU)");
   h_C_ref = h_C;
 
@@ -185,7 +193,7 @@ int main(int argc, char **argv) {
 
 
   /* 8) Allocate host memory for reading back the result from device memory */
-  printf("\nHost malloc C (GPU)........"); fflush(stdout);
+  printf("Host malloc C (GPU)............"); fflush(stdout);
   t1 = omp_get_wtime();
   h_C = reinterpret_cast<CTYPE *>(malloc(nelem * sizeof(h_C[0])));
   if (h_C == 0) {
@@ -193,14 +201,14 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
 
 
 
 
 
   /* 9) Read the result back */
-  printf("\nDevice -> Host memcpy C....."); fflush(stdout);
+  printf("Device -> Host memcpy C........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasGetVector(nelem, sizeof(h_C[0]), d_C, 1, h_C, 1);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (GPU)");
@@ -210,14 +218,14 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
 
 
 
 
 
   /* 10) Check result against reference */
-  printf("Verify result.............."); fflush(stdout);
+  printf("Verify result.................."); fflush(stdout);
   t1 = omp_get_wtime();
   checkResult(h_C_ref, h_C, N, nelem, &error_norm, &ref_norm); 
   t2 = omp_get_wtime();

@@ -138,7 +138,7 @@ void checkResult(CTYPE *h_C_ref, CTYPE *h_C, int N, unsigned long nelem, float *
         }
         double errPerc = fabs(max_diff/(h_C_ref[maxindex]));
         //printf("MaxDiff %f        (C[%i] CPU: %f      GPU: %f)\n", max_diff, maxindex, h_C_ref[maxindex], h_C[maxindex]);
-        printf("MaxErr %f%\n", errPerc);
+        //printf("MaxErr %f%\n", errPerc);
     }
     else{
         printf("Skipping Check (matrix too large)\n"); fflush(stdout);
