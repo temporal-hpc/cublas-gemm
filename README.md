@@ -20,8 +20,12 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 	2) Compile:
         cd cublas-gemm
         make
-	3) Run (Run as ./prog for info on args):
-        ./prog dev n mode
+	3) Run:
+        ./prog dev n nt computeType
+        dev: GPU ID
+        n: matrix of n x n
+        nt: number of CPU threads (for CBLAS and data init)
+        computeType: GPU Compute type (16F, 32F, 64F)
     4) Modify comopute modes:
         Change the ATYPE, BTYPE, CTYPE defines and also the types in cublasGemmEx(..)
         
