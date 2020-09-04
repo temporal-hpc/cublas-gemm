@@ -26,8 +26,10 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
         n: matrix of n x n
         nt: number of CPU threads (for CBLAS and data init)
         computeType: GPU Compute type (16F, 32F, 64F)
-    4) Modify comopute modes:
-        Change the ATYPE, BTYPE, CTYPE defines and also the types in cublasGemmEx(..)
+    4) Compile Options:
+        You can specify the data type (half, float) for each matrix
+        Example:
+        make ATYPE=half BTYPE=half CTYPE=hal
         
 ## 5) Examples:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
