@@ -28,8 +28,10 @@ cublasComputeType_t cublasComputeTypes[NUM_CUBLAS_COMPUTE_TYPES] = {CUBLAS_COMPU
                                                 CUBLAS_COMPUTE_64F_PEDANTIC,
                                                 CUBLAS_COMPUTE_32I,
                                                 CUBLAS_COMPUTE_32I_PEDANTIC};
-                                                 
 
+cudaDataType dataTypes[3]       = {CUDA_R_16F, CUDA_R_32F, CUDA_R_64F}; 
+const char* dataTypesStr[3]    = {"CUDA_R_16F", "CUDA_R_32F", "CUDA_R_64F"}; 
+                                                 
 // STRINGS FOR MESSAGES
 // CUBLAS ALGORITHMS STRINGS
 const char* cublasAlgsStr[NUM_CUBLAS_ALGS] = {"CUBLAS_GEMM_DEFAULT", 
@@ -55,15 +57,27 @@ const char* cublasComputeTypesStr[NUM_CUBLAS_COMPUTE_TYPES] = {"CUBLAS_COMPUTE_1
                                         "CUBLAS_COMPUTE_32I",
                                         "CUBLAS_COMPUTE_32I_PEDANTIC"};
 
+
+int log2i(int val){
+    int r = 0;
+    while (val >>= 1) ++r;
+    return r;
+}
+
+int hmap(int b){
+    return log2i(b) - 4;    
+}
+
+
 void printDefines(const char** opts, int n, const char *msg){
     printf("%s:\n", msg);
-    for(int i=0; i<4; ++i){
-       cout << i << " = " << cublasMathModesStr[i] << endl;  
+    for(int i=0; i<n; ++i){
+       cout << i << " = " << opts[i] << endl;  
     }
 }
 
 void printArgsInfo(){
-    printDefines(cublasMathModesStr, NUM_CUBLAS_MATH_MODES, "CUBLAS Math Modes");
+    printDefines(cublasComputeTypesStr, NUM_CUBLAS_COMPUTE_TYPES, "CUBLAS Compute Types");
 }
 
 template <typename T>
@@ -113,36 +127,36 @@ void fillMatrixRand(T *m, unsigned long nelem){
     }
 }
 
-void checkResult(CTYPE *h_C_ref, CTYPE *h_C, int N, unsigned long nelem, float *en, float *rn){
-    float error_norm = 0;
-    float ref_norm = 0;
-    float max_diff = -1.0f;
-    float diff;
-    unsigned long maxindex = 0;
-    if(N <= LIM_CHECK_N){
-        for(int i = 0; i < nelem; ++i){
-            diff = (float)h_C_ref[i] - (float)h_C[i];
-            if(fabs(diff) > max_diff){
-                max_diff = fabs(diff);
-                maxindex = i;
-            }
-            error_norm += diff * diff;
-            ref_norm += (float)h_C_ref[i] * (float)h_C_ref[i];
+template <typename T1, typename T2>
+void copyMatrix(T1 *mTo, T2 *mFrom, int n){
+    #pragma omp parallel for
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            long q = i*n+j;
+            mTo[q] = (T1)mFrom[q];
         }
+    }
+}
 
-        error_norm = static_cast<float>(sqrt(static_cast<double>(error_norm)));
-        ref_norm = static_cast<float>(sqrt(static_cast<double>(ref_norm)));
-        if (fabs(ref_norm) < 1e-7) {
-            fprintf(stderr, "!!!! reference norm is 0\n");
-            return;
+void checkResult(float *goldC, CTYPE *C, int N, double tolErr){
+    double maxErr = 0.0f;
+    long nelem = (long)N*N;
+    if(N <= LIM_CHECK_N){
+        for(long i = 0; i < nelem; ++i){
+            double err = fabs((float)goldC[i] - (float)C[i])/(float)goldC[i];
+            if(err > maxErr){
+                maxErr = err;
+            }
         }
-        double errPerc = fabs(max_diff/(h_C_ref[maxindex]));
-        //printf("MaxDiff %f        (C[%i] CPU: %f      GPU: %f)\n", max_diff, maxindex, h_C_ref[maxindex], h_C[maxindex]);
-        //printf("MaxErr %f%\n", errPerc);
+        printf("maxErr %f%  ->  ", maxErr*100.0);
+        if(maxErr > tolErr){
+            printf("FAILED");
+        }
+        else{
+            printf("PASS");
+        }
     }
     else{
-        printf("Skipping Check (matrix too large)\n"); fflush(stdout);
+        printf("Skip"); fflush(stdout);
     }
-    *en = error_norm;
-    *rn = ref_norm;
 }
