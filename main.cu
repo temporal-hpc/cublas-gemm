@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
   gpuErrchk(cudaEventSynchronize(stop));
   gpuErrchk(cudaEventElapsedTime(&gputime_ms, start, stop));
   double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
-  printf("done: %f secs   [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
+  printf("done: %f secs [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
 
 
 
@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
   cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
   t2 = omp_get_wtime();
   double cpuTFLOPS = TFLOP/(t2-t1);
-  printf("done: %f secs   [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
+  printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
   print_matrix<float>(cblasC, N, N, "RESULT MAT C (CPU)");
 
 
