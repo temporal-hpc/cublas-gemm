@@ -5,5 +5,10 @@ ARCH=sm_70
 ATYPE=float
 BTYPE=float
 CTYPE=float
+PINNED=no
+INCS=-I${INCDIR} 
+LIBS=-L${LIBDIR} 
+DEFS=-DATYPE=${ATYPE} -DBTYPE=${BTYPE} -DCTYPE=${CTYPE} -D${PINNED} 
+CUDAOPTS=-arch=${ARCH} -O3 -lcublas -lcblas -Xcompiler -fopenmp 
 all: 
-	nvcc -arch=${ARCH} -O3 -I${INCDIR} -L${LIBDIR} -DATYPE=${ATYPE} -DBTYPE=${BTYPE} -DCTYPE=${CTYPE} main.cu -lcublas -lcblas -Xcompiler -fopenmp -o prog
+	nvcc ${CUDAOPTS} ${INCS} ${LIBS} ${DEFS} main.cu -o prog

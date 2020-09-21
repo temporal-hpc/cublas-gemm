@@ -148,7 +148,7 @@ void copyMatrix(T1 *mTo, T2 *mFrom, int n){
     }
 }
 
-void checkResult(float *goldC, CTYPE *C, int N, double tolErr){
+double computeMaxError(float *goldC, CTYPE *C, int N){
     double maxErr = 0.0f;
     long nelem = (long)N*N;
     if(N <= LIM_CHECK_N){
@@ -158,15 +158,6 @@ void checkResult(float *goldC, CTYPE *C, int N, double tolErr){
                 maxErr = err;
             }
         }
-        printf("maxErr %f%  ->  ", maxErr*100.0);
-        if(maxErr > tolErr){
-            printf("FAILED");
-        }
-        else{
-            printf("PASS");
-        }
     }
-    else{
-        printf("Skip"); fflush(stdout);
-    }
+    return maxErr;
 }

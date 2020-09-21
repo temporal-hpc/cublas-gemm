@@ -97,9 +97,20 @@ int main(int argc, char **argv) {
   /* 3) Allocate and fill host memory for the matrices */
   printf("Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
-  h_A = (ATYPE*)(malloc(nelem * sizeof(h_A[0])));
-  h_B = (BTYPE*)(malloc(nelem * sizeof(h_B[0])));
-  h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
+  //h_A = (ATYPE*)(malloc(nelem * sizeof(h_A[0])));
+  //h_B = (BTYPE*)(malloc(nelem * sizeof(h_B[0])));
+  //h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
+
+  #ifdef PINNED
+      cudaMallocHost((void**)&h_A, nelem*sizeof(h_A[0]));
+      cudaMallocHost((void**)&h_B, nelem*sizeof(h_B[0]));
+      cudaMallocHost((void**)&h_C, nelem*sizeof(h_C[0]));
+  #else
+      h_A = (ATYPE*)(malloc(nelem * sizeof(h_A[0])));
+      h_B = (BTYPE*)(malloc(nelem * sizeof(h_B[0])));
+      h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
+  #endif
+
   t2 = omp_get_wtime();
   printf("done: %f secs\n", t2-t1); fflush(stdout);
   printf("Filling matrices in Host......."); fflush(stdout);
@@ -136,27 +147,39 @@ int main(int argc, char **argv) {
 
 
   /* 5) Initialize the device matrices with the host matrices */
-  printf("Device -> Host memcpy A B C...."); fflush(stdout);
+    printf("\n");
+  #ifdef PINNED
+    printf("[PINNED MEMORY]\n");
+  #endif
+  printf("Device -> Host memcpy A........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_A[0]), h_A, 1, d_A, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write A)\n");
     return EXIT_FAILURE;
   }
+  t2 = omp_get_wtime();
+  printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_A[0])/(1e9 * (t2-t1))); fflush(stdout);
 
+  printf("Device -> Host memcpy B........"); fflush(stdout);
+  t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_B[0]), h_B, 1, d_B, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write B)\n");
     return EXIT_FAILURE;
   }
+  t2 = omp_get_wtime();
+  printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_B[0])/(1e9 * (t2-t1))); fflush(stdout);
 
+  printf("Device -> Host memcpy C........"); fflush(stdout);
+  t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_C[0]), h_C, 1, d_C, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write C)\n");
     return EXIT_FAILURE;
   }
   t2 = omp_get_wtime();
-  printf("done: %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs (%f GB/sec)\n\n", t2-t1, nelem*sizeof(h_C[0])/(1e9 * (t2-t1))); fflush(stdout);
 
 
 
@@ -170,8 +193,8 @@ int main(int argc, char **argv) {
   status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
                                     d_A, dtypeA, N,
                                     d_B, dtypeB, N,
-                          &beta,    d_C, dtypeC, N, cublasComputeTypes[comptype], CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  if(status != CUBLAS_STATUS_SUCCESS) {
+                          &beta,    d_C, dtypeC, N, cublasComputeTypes[comptype],  CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+  if(status != CUBLAS_STATUS_SUCCESS){
     fprintf(stderr, "!!!! kernel execution error.\n");
     return EXIT_FAILURE;
   }
@@ -203,7 +226,7 @@ int main(int argc, char **argv) {
   printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
   //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
-  cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N, alpha, cblasA, N, cblasB, N, beta, cblasC, N);
+  cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
   t2 = omp_get_wtime();
   double cpuTFLOPS = TFLOP/(t2-t1);
   printf("done: %f secs   [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
@@ -222,7 +245,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   t2 = omp_get_wtime();
-  printf("done: %f secs\n", t2-t1); fflush(stdout);
+  printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_C[0])/(1e9*(t2-t1))); fflush(stdout);
   print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (GPU)");
 
 
@@ -232,9 +255,11 @@ int main(int argc, char **argv) {
   /* 9) Check result against reference */
   printf("Verify result.................."); fflush(stdout);
   t1 = omp_get_wtime();
-  checkResult(cblasC, h_C, N, TOLERR); 
+  double maxError = computeMaxError(cblasC, h_C, N); 
   t2 = omp_get_wtime();
-  printf(": %f secs\n\n", t2-t1); fflush(stdout);
+  printf("done: %f secs (maxError = %f%%, TOL = %f%%)\n%s\n\n", t2-t1,
+          maxError*100.0, TOLERR*100.0, 
+          maxError <= TOLERR ? (const char*)"pass" : (const char*) "failed"); fflush(stdout);
 
 
 
@@ -242,9 +267,15 @@ int main(int argc, char **argv) {
 
 
   /* 10) Memory clean up */
-  free(h_A);
-  free(h_B);
-  free(h_C);
+  #ifdef PINNED
+      cudaFreeHost(h_A);
+      cudaFreeHost(h_B);
+      cudaFreeHost(h_C);
+  #else
+      free(h_A);
+      free(h_B);
+      free(h_C);
+  #endif
 
   if (cudaFree(d_A) != cudaSuccess) {
     fprintf(stderr, "!!!! memory free error (A)\n");
