@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   // number of elements
   unsigned long nelem = N * N;
   double t1, t2;
-  double TFLOP = 2.0*N*N*N * 1E-12;
+  double TFLOP = N*N*(2.0*N + 2.0) * 1E-12;
   int bitsA = sizeof(ATYPE)*8;
   int bitsB = sizeof(BTYPE)*8;
   int bitsC = sizeof(CTYPE)*8;
