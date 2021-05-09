@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   const char* dtypeBStr = dataTypesStr[hmap(bitsB)];
   const char* dtypeCStr = dataTypesStr[hmap(bitsC)];
 
-  cudaSetDevice(dev);
+  gpuErrchk(cudaSetDevice(dev));
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -147,37 +147,42 @@ int main(int argc, char **argv) {
 
 
   /* 5) Initialize the device matrices with the host matrices */
-    printf("\n");
+    printf("\nPINNED MEMORY = ");
   #ifdef PINNED
-    printf("[PINNED MEMORY]\n");
+    printf("TRUE\n");
+  #else
+    printf("FASLE\n");
   #endif
-  printf("Device -> Host memcpy A........"); fflush(stdout);
+  printf("Host -> Device memcpy A........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_A[0]), h_A, 1, d_A, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write A)\n");
     return EXIT_FAILURE;
   }
+  gpuErrchk(cudaDeviceSynchronize());
   t2 = omp_get_wtime();
   printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_A[0])/(1e9 * (t2-t1))); fflush(stdout);
 
-  printf("Device -> Host memcpy B........"); fflush(stdout);
+  printf("Host -> Device memcpy B........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_B[0]), h_B, 1, d_B, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write B)\n");
     return EXIT_FAILURE;
   }
+  gpuErrchk(cudaDeviceSynchronize());
   t2 = omp_get_wtime();
   printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_B[0])/(1e9 * (t2-t1))); fflush(stdout);
 
-  printf("Device -> Host memcpy C........"); fflush(stdout);
+  printf("Host -> Device memcpy C........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_C[0]), h_C, 1, d_C, 1);
   if (status != CUBLAS_STATUS_SUCCESS) {
     fprintf(stderr, "!!!! device access error (write C)\n");
     return EXIT_FAILURE;
   }
+  gpuErrchk(cudaDeviceSynchronize());
   t2 = omp_get_wtime();
   printf("done: %f secs (%f GB/sec)\n\n", t2-t1, nelem*sizeof(h_C[0])/(1e9 * (t2-t1))); fflush(stdout);
 
@@ -210,19 +215,19 @@ int main(int argc, char **argv) {
 
 
   /* 7) GEMM -> CPU BASIC */
-  //printf("[CBLAS] (float) Host mallocs A B C............."); fflush(stdout);
+  printf("[CBLAS] (float) Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
   cblasA = (float*)(malloc(nelem * sizeof(cblasA[0])));
   cblasB = (float*)(malloc(nelem * sizeof(cblasB[0])));
   cblasC = (float*)(malloc(nelem * sizeof(cblasC[0])));
   t2 = omp_get_wtime();
-  //printf("done: %f secs\n", t2-t1); fflush(stdout);
-  //printf("[CBLAS] (float) Filling matrices in Host......."); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
+  printf("[CBLAS] (float) Filling matrices in Host......."); fflush(stdout);
   t1 = omp_get_wtime();
   copyMatrix<float, ATYPE>(cblasA, h_A, N);
   copyMatrix<float, BTYPE>(cblasB, h_B, N);
   t2 = omp_get_wtime();
-  //printf("done: %f secs\n", t2-t1); fflush(stdout);
+  printf("done: %f secs\n", t2-t1); fflush(stdout);
   printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
   //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
