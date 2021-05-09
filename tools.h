@@ -68,6 +68,8 @@ const char* cublasComputeTypesStr[NUM_CUBLAS_COMPUTE_TYPES] = {"CUBLAS_COMPUTE_1
                                         "CUBLAS_COMPUTE_32I_PEDANTIC"};
 
 
+const char* cblasDataTypesStr[2] = {"float", "double"};
+
 int log2i(int val){
     int r = 0;
     while (val >>= 1) ++r;
@@ -78,6 +80,9 @@ int hmap(int b){
     return log2i(b) - 4;    
 }
 
+int cpuhmap(int b){
+    return log2i(b) - 5;
+}
 
 void printDefines(const char** opts, int n, const char *msg){
     printf("%s:\n", msg);
@@ -148,12 +153,13 @@ void copyMatrix(T1 *mTo, T2 *mFrom, int n){
     }
 }
 
-double computeMaxError(float *goldC, CTYPE *C, int N){
+template <typename T>
+double computeMaxError(T *goldC, CTYPE *C, int N){
     double maxErr = 0.0f;
     long nelem = (long)N*N;
     if(N <= LIM_CHECK_N){
         for(long i = 0; i < nelem; ++i){
-            double err = fabs((float)goldC[i] - (float)C[i])/(float)goldC[i];
+            double err = fabs((double)goldC[i] - (double)C[i])/(double)goldC[i];
             if(err > maxErr){
                 maxErr = err;
             }

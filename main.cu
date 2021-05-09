@@ -14,10 +14,13 @@
 
 #define LIM_CHECK_N 4096
 #define LIM_PRINT_N 32
-
 // fraction error   1.0 is 100% 
 #define TOLERR 0.0001
-
+#ifdef CPUFP64
+    typedef double CPUTYPE;
+#else
+    typedef float CPUTYPE;
+#endif
 #include "tools.h"
 
 using namespace std;
@@ -36,11 +39,11 @@ int main(int argc, char **argv) {
   int comptype = atoi(argv[4]);
   // host pointers
   ATYPE *h_A;
-  float *cblasA;
+  CPUTYPE *cblasA;
   BTYPE *h_B;
-  float *cblasB;
+  CPUTYPE *cblasB;
   CTYPE *h_C;
-  float *cblasC;
+  CPUTYPE *cblasC;
   // device pointers
   ATYPE *d_A = 0;
   BTYPE *d_B = 0;
@@ -56,6 +59,7 @@ int main(int argc, char **argv) {
   int bitsA = sizeof(ATYPE)*8;
   int bitsB = sizeof(BTYPE)*8;
   int bitsC = sizeof(CTYPE)*8;
+  int bitsCPU = sizeof(CPUTYPE)*8;
 
   cudaDataType dtypeA = dataTypes[hmap(bitsA)];
   cudaDataType dtypeB = dataTypes[hmap(bitsB)];
@@ -63,6 +67,7 @@ int main(int argc, char **argv) {
   const char* dtypeAStr = dataTypesStr[hmap(bitsA)];
   const char* dtypeBStr = dataTypesStr[hmap(bitsB)];
   const char* dtypeCStr = dataTypesStr[hmap(bitsC)];
+  const char* dtypeCPU = cblasDataTypesStr[cpuhmap(bitsCPU)];
 
   gpuErrchk(cudaSetDevice(dev));
   cudaEvent_t start, stop;
@@ -70,11 +75,14 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   omp_set_num_threads(nt);
-  printf("CONFIG:\nMATMUL A x B = C (%i x %i)\nA FP%i (%s)\nB FP%i (%s)\nC FP%i (%s)\n\n", 
+  printf("\nCUBLAS & CBLAS GEMM C = A x B\nMatrix size %i x %i\n\nGPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\nCPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\n", 
           N, N,  
           bitsA, dtypeAStr,
           bitsB, dtypeBStr,
-          bitsC, dtypeCStr);
+          bitsC, dtypeCStr,
+          bitsCPU, dtypeCPU,
+          bitsCPU, dtypeCPU,
+          bitsCPU, dtypeCPU);
 
   printf("GPU Mem used...................%.1f GB\n", GBytesUsed); fflush(stdout);
   printf("Pinned Mem.....................");
@@ -106,10 +114,6 @@ int main(int argc, char **argv) {
   /* 3) Allocate and fill host memory for the matrices */
   printf("Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
-  //h_A = (ATYPE*)(malloc(nelem * sizeof(h_A[0])));
-  //h_B = (BTYPE*)(malloc(nelem * sizeof(h_B[0])));
-  //h_C = (CTYPE*)(malloc(nelem * sizeof(h_C[0])));
-
   #ifdef PINNED
       cudaMallocHost((void**)&h_A, nelem*sizeof(h_A[0]));
       cudaMallocHost((void**)&h_B, nelem*sizeof(h_B[0]));
@@ -220,25 +224,29 @@ int main(int argc, char **argv) {
   /* 7) GEMM -> CPU BASIC */
   //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
-  cblasA = (float*)(malloc(nelem * sizeof(cblasA[0])));
-  cblasB = (float*)(malloc(nelem * sizeof(cblasB[0])));
-  cblasC = (float*)(malloc(nelem * sizeof(cblasC[0])));
+  cblasA = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
+  cblasB = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
+  cblasC = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
   t2 = omp_get_wtime();
   //printf("done: %f secs\n", t2-t1); fflush(stdout);
   //printf("[CBLAS] Filling matrices in Host......."); fflush(stdout);
   t1 = omp_get_wtime();
-  copyMatrix<float, ATYPE>(cblasA, h_A, N);
-  copyMatrix<float, BTYPE>(cblasB, h_B, N);
+  copyMatrix<CPUTYPE, ATYPE>(cblasA, h_A, N);
+  copyMatrix<CPUTYPE, BTYPE>(cblasB, h_B, N);
   t2 = omp_get_wtime();
   //printf("done: %f secs\n", t2-t1); fflush(stdout);
-  printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
-  //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
-  cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+  printf("[CBLAS] CPU GEMM (%6s)......", dtypeCPU); fflush(stdout);
+  #ifdef CPUFP64
+      cblas_dgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+  #else
+      cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+  #endif
+
   t2 = omp_get_wtime();
   double cpuTFLOPS = TFLOP/(t2-t1);
   printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
-  print_matrix<float>(cblasC, N, N, "RESULT MAT C (CPU)");
+  print_matrix<CPUTYPE>(cblasC, N, N, "RESULT MAT C (CPU)");
 
 
 
@@ -263,7 +271,7 @@ int main(int argc, char **argv) {
   /* 9) Check result against reference */
   printf("Verify result.................."); fflush(stdout);
   t1 = omp_get_wtime();
-  double maxError = computeMaxError(cblasC, h_C, N); 
+  double maxError = computeMaxError<CPUTYPE>(cblasC, h_C, N); 
   t2 = omp_get_wtime();
   printf("done: %f secs (maxError = %f%%, TOL = %f%%)\n%s\n\n", t2-t1,
           maxError*100.0, TOLERR*100.0, 
