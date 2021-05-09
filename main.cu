@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
   CTYPE beta = 0.0f;
   // number of elements
   unsigned long nelem = N * N;
+  double GBytesUsed = (double)nelem*(sizeof(ATYPE) + sizeof(BTYPE) + sizeof(CTYPE))/(1e9);
   double t1, t2;
   double TFLOP = N*N*(2.0*N + 2.0) * 1E-12;
   int bitsA = sizeof(ATYPE)*8;
@@ -69,11 +70,19 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   omp_set_num_threads(nt);
-  printf("MATMUL A x B = C (%i x %i)\nA FP%i (%s)\nB FP%i (%s)\nC FP%i (%s)\n\n", 
+  printf("CONFIG:\nMATMUL A x B = C (%i x %i)\nA FP%i (%s)\nB FP%i (%s)\nC FP%i (%s)\n\n", 
           N, N,  
           bitsA, dtypeAStr,
           bitsB, dtypeBStr,
           bitsC, dtypeCStr);
+
+  printf("GPU Mem used...................%.1f GB\n", GBytesUsed); fflush(stdout);
+  printf("Pinned Mem.....................");
+  #ifdef PINNED
+    printf("True\n");
+  #else
+    printf("False\n");
+  #endif
 
 
 
@@ -86,7 +95,7 @@ int main(int argc, char **argv) {
 
 
   /* 2) Set math mode */
-  printf("Compute Type.....................%s\n", cublasComputeTypesStr[comptype]);
+  printf("Compute Type...................%s\n\n", cublasComputeTypesStr[comptype]);
   //status = cublasSetMathMode(handle, cublasMathModes[0]);
   if (status != CUBLAS_STATUS_SUCCESS){
     fprintf(stderr, "!!!! CUBLAS MATH MODE ERROR\n");
@@ -147,12 +156,6 @@ int main(int argc, char **argv) {
 
 
   /* 5) Initialize the device matrices with the host matrices */
-    printf("\nPINNED MEMORY = ");
-  #ifdef PINNED
-    printf("TRUE\n");
-  #else
-    printf("FASLE\n");
-  #endif
   printf("Host -> Device memcpy A........"); fflush(stdout);
   t1 = omp_get_wtime();
   status = cublasSetVector(nelem, sizeof(h_A[0]), h_A, 1, d_A, 1);
@@ -215,19 +218,19 @@ int main(int argc, char **argv) {
 
 
   /* 7) GEMM -> CPU BASIC */
-  printf("[CBLAS] (float) Host mallocs A B C............."); fflush(stdout);
+  //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
   t1 = omp_get_wtime();
   cblasA = (float*)(malloc(nelem * sizeof(cblasA[0])));
   cblasB = (float*)(malloc(nelem * sizeof(cblasB[0])));
   cblasC = (float*)(malloc(nelem * sizeof(cblasC[0])));
   t2 = omp_get_wtime();
-  printf("done: %f secs\n", t2-t1); fflush(stdout);
-  printf("[CBLAS] (float) Filling matrices in Host......."); fflush(stdout);
+  //printf("done: %f secs\n", t2-t1); fflush(stdout);
+  //printf("[CBLAS] Filling matrices in Host......."); fflush(stdout);
   t1 = omp_get_wtime();
   copyMatrix<float, ATYPE>(cblasA, h_A, N);
   copyMatrix<float, BTYPE>(cblasB, h_B, N);
   t2 = omp_get_wtime();
-  printf("done: %f secs\n", t2-t1); fflush(stdout);
+  //printf("done: %f secs\n", t2-t1); fflush(stdout);
   printf("[CBLAS] CPU GEMM..............."); fflush(stdout);
   t1 = omp_get_wtime();
   //cpuGemm(N, alpha, h_A, h_B, beta, h_C);
