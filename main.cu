@@ -75,11 +75,11 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   omp_set_num_threads(nt);
-  printf("\nCUBLAS & CBLAS GEMM C = A x B\nMatrix size %i x %i\n\nGPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\nCPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\n", 
+  printf("\nCUBLAS & CBLAS GEMM C = A x B\nMatrix size %i x %i\n\nGPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\nCPU (nt=%i):\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\n", 
           N, N,  
           bitsA, dtypeAStr,
           bitsB, dtypeBStr,
-          bitsC, dtypeCStr,
+          bitsC, dtypeCStr, nt,
           bitsCPU, dtypeCPU,
           bitsCPU, dtypeCPU,
           bitsCPU, dtypeCPU);
