@@ -9,8 +9,8 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 ## 2) Requirements:
 	- Nvidia GPU supporting CUDA
 	- CUDA v11.0 or greater
-    - CUBLAS v11.0 (should come with CUDA)
-    - openblas (max-perf CPU test)
+	- CUBLAS v11.0 (should come with CUDA)
+	- openblas (max-perf CPU test)
 
 ## 3) License:
     None yet. Use it at free will.
