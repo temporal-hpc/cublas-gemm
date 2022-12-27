@@ -23,12 +23,15 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
         make
 
 ## 5) Run:
-	a) Run:
-        ./prog dev n nt computeType
-        dev: GPU ID
-        n: matrix of n x n
-        nt: number of CPU threads (for CBLAS and data init)
-        computeType: GPU Compute type (16F, 32F, 64F)
+    a) Run:
+        run as ./prog dev nt n comptype mode
+
+        dev:      Device ID
+        nt:       Number of CPU threads (accelerates data init and CPU mode)
+        n:        Matrix size of n x n
+        comptype: GPU CUBLAS mode
+        mode:     CPU=0,  GPU=1
+
     b) CUBLAS Compute Types:
             0  = CUBLAS_COMPUTE_16F
             1  = CUBLAS_COMPUTE_16F_PEDANTIC
@@ -44,7 +47,7 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
     c) Compile Options:
         You can specify the data type (half, float) for each matrix
         Example:
-        make ATYPE=half BTYPE=half CTYPE=hal
+        `make ATYPE=half BTYPE=half CTYPE=hal`
         
 ## 6) Example executions:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
