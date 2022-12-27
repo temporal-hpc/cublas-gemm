@@ -8,9 +8,6 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 	- CUBLAS v11.0 (should come with CUDA)
 	- openblas (max-perf CPU test)
 
-## License:
-    None yet. Use it at free will.
-
 ## Install and Compile:
 	a) Clone Repo:
         git clone https://github.com/temporal-hpc/cublas-gemm
