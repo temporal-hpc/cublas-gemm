@@ -11,9 +11,16 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 ## Install and Compile:
 	a) Clone Repo:
         git clone https://github.com/temporal-hpc/cublas-gemm
+
 	b) Compile:
         cd cublas-gemm
         make
+
+    c) Data Types:
+        You can specify the data type (half, float) for each matrix
+        Example:
+        make ATYPE=half BTYPE=half CTYPE=hal
+        
 
 ## Run:
     a) Run:
@@ -37,11 +44,6 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
             9  = CUBLAS_COMPUTE_32I
             10 = CUBLAS_COMPUTE_32I_PEDANTIC
 
-    c) Compile Options:
-        You can specify the data type (half, float) for each matrix
-        Example:
-        make ATYPE=half BTYPE=half CTYPE=hal
-        
 ## Example executions:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
         make ATYPE=float BTYPE=float CTYPE=float
