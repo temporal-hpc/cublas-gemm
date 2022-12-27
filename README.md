@@ -25,7 +25,6 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 ## 5) Run:
     a) Run:
         run as ./prog dev nt n comptype mode
-
         dev:      Device ID
         nt:       Number of CPU threads (accelerates data init and CPU mode)
         n:        Matrix size of n x n
