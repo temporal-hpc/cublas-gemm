@@ -45,14 +45,22 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
             10 = CUBLAS_COMPUTE_32I_PEDANTIC
 
 ## Example executions:
-    a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
+    a) [GPU] Default CUBLAS math (FP32 CUDA cores)
         make ATYPE=float BTYPE=float CTYPE=float
-        ./prog 0 4 $((2**12)) 2 1
+        ./prog 0 4 $((2**13)) 2 1
 
-    b) Multiply 4096 x 4096 matrices using Tensor Cores with mixed precision
+    b) [GPU] Tensor Cores with mixed precision
         make ATYPE=half BTYPE=half CTYPE=float
-        ./prog 0 4 $((2**12)) 4 1
+        ./prog 0 4 $((2**13)) 4 1
 
-    c) Multiply 4096 x 4096 matrices using Tensor Cores full FP16
+    c) [GPU] Tensor Cores with FP16
         make ATYPE=half BTYPE=half CTYPE=half
-        ./prog 0 4 $((2**12)) 0 1
+        ./prog 0 4 $((2**13)) 0 1
+
+    d) [CPU] FP32 Using 8 CPU threads 
+        make CPUTYPE=float
+        ./prog 0 8 $((2**13)) 0 0
+
+    e) [CPU] FP64 Using 8 CPU threads 
+        make CPUTYPE=double
+        ./prog 0 8 $((2**13)) 0 0
