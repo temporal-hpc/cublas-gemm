@@ -27,8 +27,14 @@ using namespace std;
 
 int main(int argc, char **argv) {
   cublasStatus_t status;
-  if(argc != 5){
-      fprintf(stderr, "run as ./prog dev nt n comptype\n\n");
+  if(argc != 6){
+      fprintf(stderr, "run as ./prog dev nt n comptype mode\n\n"
+              "dev:      Device ID\n"
+              "nt:       Number of CPU threads (accelerates data init and CPU mode)\n"
+              "n:        Matrix size of n x n\n"
+              "comptype: GPU CUBLAS mode\n"
+              "mode:     CPU=0,  GPU=1\n\n");
+
       printArgsInfo();
       return EXIT_FAILURE;
   }
@@ -37,6 +43,7 @@ int main(int argc, char **argv) {
   int nt = atoi(argv[2]);
   int N = atoi(argv[3]);
   int comptype = atoi(argv[4]);
+  int mode = atoi(argv[5]);
   // host pointers
   ATYPE *h_A;
   CPUTYPE *cblasA;
@@ -52,10 +59,10 @@ int main(int argc, char **argv) {
   CTYPE alpha = 1.0f;
   CTYPE beta = 0.0f;
   // number of elements
-  unsigned long nelem = N * N;
-  double GBytesUsed = (double)nelem*(sizeof(ATYPE) + sizeof(BTYPE) + sizeof(CTYPE))/(1e9);
+  unsigned long nelem = (unsigned long)N * (unsigned long)N;
+  double GBytesUsed = (double)nelem*(sizeof(ATYPE) + sizeof(BTYPE) + sizeof(CTYPE))/1e9;
   double t1, t2;
-  double TFLOP = N*N*(2.0*N + 2.0) * 1E-12;
+  double TFLOP = 2.0*(double)N*(double)N*(double)N * 1E-12;
   int bitsA = sizeof(ATYPE)*8;
   int bitsB = sizeof(BTYPE)*8;
   int bitsC = sizeof(CTYPE)*8;
@@ -76,16 +83,19 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   omp_set_num_threads(nt);
-  printf("\nCUBLAS & CBLAS GEMM C = A x B\nMatrix size %i x %i\n\nGPU:\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\nCPU (nt=%i):\n\tA FP%i (%s)\n\tB FP%i (%s)\n\tC FP%i (%s)\n\n", 
-          N, N,  
+  printf("mode: %s\n", mode == 0? "CPU" : "GPU");
+  printf("Matrix size %i x %i --> %lu elements\n"
+          "GPU: A FP%i (%10s), B FP%i (%10s), C FP%i (%10s)\n"
+          "CPU: A FP%i (%10s), B FP%i (%10s), C FP%i (%10s)\n\n", 
+          N, N, nelem,  
           bitsA, dtypeAStr,
           bitsB, dtypeBStr,
-          bitsC, dtypeCStr, nt,
+          bitsC, dtypeCStr, 
           bitsCPU, dtypeCPU,
           bitsCPU, dtypeCPU,
           bitsCPU, dtypeCPU);
 
-  printf("GPU Mem used...................%.1f GB\n", GBytesUsed); fflush(stdout);
+  printf("GPU Mem used...................%f GB\n", GBytesUsed); fflush(stdout);
   printf("Pinned Mem.....................");
   #ifdef PINNED
     printf("True\n");
@@ -201,53 +211,57 @@ int main(int argc, char **argv) {
 
 
   /* 6) GEMM -> GPU CUBLAS */
-  printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
-  gpuErrchk(cudaEventRecord(start));
-  status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
-                                    d_A, dtypeA, N,
-                                    d_B, dtypeB, N,
-                          &beta,    d_C, dtypeC, N, cublasComputeTypes[comptype],  CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  if(status != CUBLAS_STATUS_SUCCESS){
-    fprintf(stderr, "!!!! kernel execution error.\n");
-    return EXIT_FAILURE;
+  if(mode==1){
+      printf("[CUBLAS] GPU GEMM.............."); fflush(stdout);
+      gpuErrchk(cudaEventRecord(start));
+      status = cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &alpha,
+                                        d_A, dtypeA, N,
+                                        d_B, dtypeB, N,
+                              &beta,    d_C, dtypeC, N, cublasComputeTypes[comptype],  CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      if(status != CUBLAS_STATUS_SUCCESS){
+        fprintf(stderr, "!!!! kernel execution error.\n");
+        return EXIT_FAILURE;
+      }
+      gpuErrchk(cudaDeviceSynchronize());
+      gpuErrchk(cudaEventRecord(stop));
+      gpuErrchk(cudaEventSynchronize(stop));
+      gpuErrchk(cudaEventElapsedTime(&gputime_ms, start, stop));
+      double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
+      printf("done: %f secs [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
   }
-  gpuErrchk(cudaDeviceSynchronize());
-  gpuErrchk(cudaEventRecord(stop));
-  gpuErrchk(cudaEventSynchronize(stop));
-  gpuErrchk(cudaEventElapsedTime(&gputime_ms, start, stop));
-  double gpuTFLOPS = TFLOP/(gputime_ms/1000.0);
-  printf("done: %f secs [%f TFLOPS]\n", gputime_ms/1000.0, gpuTFLOPS); fflush(stdout);
 
 
 
 
 
   /* 7) GEMM -> CPU BASIC */
-  //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
-  t1 = omp_get_wtime();
-  cblasA = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
-  cblasB = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
-  cblasC = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
-  t2 = omp_get_wtime();
-  //printf("done: %f secs\n", t2-t1); fflush(stdout);
-  //printf("[CBLAS] Filling matrices in Host......."); fflush(stdout);
-  t1 = omp_get_wtime();
-  copyMatrix<CPUTYPE, ATYPE>(cblasA, h_A, N);
-  copyMatrix<CPUTYPE, BTYPE>(cblasB, h_B, N);
-  t2 = omp_get_wtime();
-  //printf("done: %f secs\n", t2-t1); fflush(stdout);
-  t1 = omp_get_wtime();
-  printf("[CBLAS] CPU GEMM (%6s)......", dtypeCPU); fflush(stdout);
-  #ifdef CPUFP64
-      cblas_dgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
-  #else
-      cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
-  #endif
+  if(mode == 0){
+      //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
+      t1 = omp_get_wtime();
+      cblasA = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
+      cblasB = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
+      cblasC = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
+      t2 = omp_get_wtime();
+      //printf("done: %f secs\n", t2-t1); fflush(stdout);
+      //printf("[CBLAS] Filling matrices in Host......."); fflush(stdout);
+      t1 = omp_get_wtime();
+      copyMatrix<CPUTYPE, ATYPE>(cblasA, h_A, N);
+      copyMatrix<CPUTYPE, BTYPE>(cblasB, h_B, N);
+      t2 = omp_get_wtime();
+      //printf("done: %f secs\n", t2-t1); fflush(stdout);
+      t1 = omp_get_wtime();
+      printf("[CBLAS] CPU GEMM (%6s)......", dtypeCPU); fflush(stdout);
+      #ifdef CPUFP64
+          cblas_dgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+      #else
+          cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+      #endif
 
-  t2 = omp_get_wtime();
-  double cpuTFLOPS = TFLOP/(t2-t1);
-  printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
-  print_matrix<CPUTYPE>(cblasC, N, N, "RESULT MAT C (CPU)");
+      t2 = omp_get_wtime();
+      double cpuTFLOPS = TFLOP/(t2-t1);
+      printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
+      print_matrix<CPUTYPE>(cblasC, N, N, "RESULT MAT C (CPU)");
+  }
 
 
 

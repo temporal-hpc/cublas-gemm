@@ -17,7 +17,7 @@ void print_gpu_specs(int dev){
     cudaGetDeviceProperties(&prop, dev);
     printf("Device Number: %d\n", dev);
     printf("  Device name:                  %s\n", prop.name);
-    printf("  Memory:                       %i MB\n", prop.totalGlobalMem/(1024*1024));
+    printf("  Memory:                       %f GB\n", prop.totalGlobalMem/(1024.0*1024.0*1024.0));
     printf("  Multiprocessor Count:         %d\n", prop.multiProcessorCount);
     printf("  Concurrent Kernels:           %d\n", prop.concurrentKernels);
     printf("  Memory Clock Rate:            %d MHz\n", prop.memoryClockRate);
