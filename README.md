@@ -1,6 +1,5 @@
 # CUBLAS GEMM Example
-
-A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on GPUs.
+A simple CUBLAS Matrix Multiplu (GEMM) example to learn accelerated linear algebra libraries on GPUs.
 
 ## Requirements:
 	- Nvidia GPU supporting CUDA
