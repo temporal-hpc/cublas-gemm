@@ -1,28 +1,24 @@
-# CUBLAS GEMM Minimal Example v1.1
+# CUBLAS GEMM Example
 
 A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on GPUs.
 
-## 1) Versions history:
-    - v1.1 (September 2020)
-	- v1.0 (July 2020)
-
-## 2) Requirements:
+## Requirements:
 	- Nvidia GPU supporting CUDA
 	- CUDA v11.0 or greater
 	- CUBLAS v11.0 (should come with CUDA)
 	- openblas (max-perf CPU test)
 
-## 3) License:
+## License:
     None yet. Use it at free will.
 
-## 4) Install and Compile:
+## Install and Compile:
 	a) Clone Repo:
         git clone https://github.com/temporal-hpc/cublas-gemm
 	b) Compile:
         cd cublas-gemm
         make
 
-## 5) Run:
+## Run:
     a) Run:
         run as ./prog dev nt n comptype mode
         dev:      Device ID
@@ -49,7 +45,7 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
         Example:
         make ATYPE=half BTYPE=half CTYPE=hal
         
-## 6) Example executions:
+## Example executions:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
         make ATYPE=float BTYPE=float CTYPE=float
         ./prog 0 4 $((1024*4)) 2
