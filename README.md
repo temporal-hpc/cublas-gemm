@@ -44,10 +44,11 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
             8  = CUBLAS_COMPUTE_64F_PEDANTIC
             9  = CUBLAS_COMPUTE_32I
             10 = CUBLAS_COMPUTE_32I_PEDANTIC
+
     c) Compile Options:
         You can specify the data type (half, float) for each matrix
         Example:
-        `make ATYPE=half BTYPE=half CTYPE=hal`
+        make ATYPE=half BTYPE=half CTYPE=hal
         
 ## 6) Example executions:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
