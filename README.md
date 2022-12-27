@@ -57,9 +57,9 @@ A CUBLAS Matrix Multiply (GEMM) example.
         ./prog 0 4 $((2**13)) 0 1
 
     d) [CPU CBLAS] FP32 Using 8 CPU threads 
-        make CPUTYPE=float
+        make
         ./prog 0 8 $((2**13)) 0 0
 
     e) [CPU CBLAS] FP64 Using 8 CPU threads 
-        make CPUTYPE=double
+        make CPUFP64=CPUFP64
         ./prog 0 8 $((2**13)) 0 0
