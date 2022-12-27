@@ -44,11 +44,13 @@ int main(int argc, char **argv) {
   int N = atoi(argv[3]);
   int comptype = atoi(argv[4]);
   int mode = atoi(argv[5]);
+  printf("\n*********************************************\n"
+         "******** CUBLAS Example by Temporal *********\n"
+         "*********************************************\n\n");
+  printf("dev=%i, nt=%i, n=%i, cublasType=%i, <mode = %i -> %s>\n\n", dev, nt, N, comptype, mode, mode == 0? "CPU" : "GPU");
   // host pointers
   ATYPE *h_A;
-  CPUTYPE *cblasA;
   BTYPE *h_B;
-  CPUTYPE *cblasB;
   CTYPE *h_C;
   CPUTYPE *cblasC;
   // device pointers
@@ -83,7 +85,6 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cublasHandle_t handle;
   omp_set_num_threads(nt);
-  printf("mode: %s\n", mode == 0? "CPU" : "GPU");
   printf("Matrix size %i x %i --> %lu elements\n"
           "GPU: A FP%i (%10s), B FP%i (%10s), C FP%i (%10s)\n"
           "CPU: A FP%i (%10s), B FP%i (%10s), C FP%i (%10s)\n\n", 
@@ -236,6 +237,8 @@ int main(int argc, char **argv) {
 
   /* 7) GEMM -> CPU BASIC */
   if(mode == 0){
+      cblasC = cblas_compute<CPUTYPE>(N, nelem, alpha, beta, h_A, h_B, dtypeCPU, true); 
+      /*
       //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
       t1 = omp_get_wtime();
       cblasA = (CPUTYPE*)(malloc(nelem * sizeof(CPUTYPE)));
@@ -261,6 +264,7 @@ int main(int argc, char **argv) {
       double cpuTFLOPS = TFLOP/(t2-t1);
       printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
       print_matrix<CPUTYPE>(cblasC, N, N, "RESULT MAT C (CPU)");
+      */
   }
 
 
@@ -268,29 +272,35 @@ int main(int argc, char **argv) {
 
 
   /* 8) Read the result back */
-  printf("Device -> Host memcpy C........"); fflush(stdout);
-  t1 = omp_get_wtime();
-  status = cublasGetVector(nelem, sizeof(h_C[0]), d_C, 1, h_C, 1);
-  if (status != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "!!!! device access error (read C)\n");
-    return EXIT_FAILURE;
+  if(mode == 1){
+      printf("Device -> Host memcpy C........"); fflush(stdout);
+      t1 = omp_get_wtime();
+      status = cublasGetVector(nelem, sizeof(h_C[0]), d_C, 1, h_C, 1);
+      if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "!!!! device access error (read C)\n");
+        return EXIT_FAILURE;
+      }
+      t2 = omp_get_wtime();
+      printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_C[0])/(1e9*(t2-t1))); fflush(stdout);
+      print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (GPU)");
   }
-  t2 = omp_get_wtime();
-  printf("done: %f secs (%f GB/sec)\n", t2-t1, nelem*sizeof(h_C[0])/(1e9*(t2-t1))); fflush(stdout);
-  print_matrix<CTYPE>(h_C, N, N, "RESULT MAT C (GPU)");
-
 
 
 
 
   /* 9) Check result against reference */
-  printf("Verify result.................."); fflush(stdout);
-  t1 = omp_get_wtime();
-  double maxError = computeMaxError<CPUTYPE>(cblasC, h_C, N); 
-  t2 = omp_get_wtime();
-  printf("done: %f secs (maxError = %f%%, TOL = %f%%)\n%s\n\n", t2-t1,
-          maxError*100.0, TOLERR*100.0, 
-          maxError <= TOLERR ? (const char*)"pass" : (const char*) "failed"); fflush(stdout);
+  if(mode == 1){
+      printf("Verify result.................."); fflush(stdout);
+      t1 = omp_get_wtime();
+      if(N < LIM_CHECK_N){
+          cblasC = cblas_compute<CPUTYPE>(N, nelem, alpha, beta, h_A, h_B, dtypeCPU, false); 
+      }
+      double maxError = computeMaxError<CPUTYPE>(cblasC, h_C, N); 
+      t2 = omp_get_wtime();
+      printf("done: %f secs (maxError = %f%%, TOL = %f%%)\n%s\n\n", t2-t1,
+              maxError*100.0, TOLERR*100.0, 
+              maxError <= TOLERR ? (const char*)"pass" : (const char*) "failed"); fflush(stdout);
+  }
 
 
 

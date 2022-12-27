@@ -181,3 +181,37 @@ double computeMaxError(T *goldC, CTYPE *C, int N){
     }
     return maxErr;
 }
+
+template <typename T>
+T* cblas_compute(int N, unsigned long nelem, CTYPE alpha, CTYPE beta, ATYPE *h_A, BTYPE *h_B, const char *dtypeCPU, bool verb){
+    double TFLOP = 2.0*(double)N*(double)N*(double)N * 1E-12;
+    //printf("[CBLAS] Host mallocs A B C............."); fflush(stdout);
+    double t1 = omp_get_wtime();
+    T *cblasA = (T*)(malloc(nelem * sizeof(T)));
+    T *cblasB = (T*)(malloc(nelem * sizeof(T)));
+    T *cblasC = (T*)(malloc(nelem * sizeof(T)));
+    double t2 = omp_get_wtime();
+    //printf("done: %f secs\n", t2-t1); fflush(stdout);
+    //printf("[CBLAS] Filling matrices in Host......."); fflush(stdout);
+    t1 = omp_get_wtime();
+    copyMatrix<T, ATYPE>(cblasA, h_A, N);
+    copyMatrix<T, BTYPE>(cblasB, h_B, N);
+    t2 = omp_get_wtime();
+    //printf("done: %f secs\n", t2-t1); fflush(stdout);
+    t1 = omp_get_wtime();
+    if(verb){
+        printf("[CBLAS] CPU GEMM (%6s)......", dtypeCPU); fflush(stdout);
+    }
+    #ifdef CPUFP64
+      cblas_dgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+    #else
+      cblas_sgemm(CblasColMajor,CblasNoTrans,CblasNoTrans,N,N,N,alpha,cblasA,N,cblasB,N,beta,cblasC,N);
+    #endif
+    t2 = omp_get_wtime();
+    double cpuTFLOPS = TFLOP/(t2-t1);
+    if(verb){
+        printf("done: %f secs [%f TFLOPS]\n\n", t2-t1, cpuTFLOPS); fflush(stdout);
+    }
+    print_matrix<T>(cblasC, N, N, "RESULT MAT C (CPU)");
+    return cblasC;
+}

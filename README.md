@@ -47,12 +47,12 @@ A simple CUBLAS v11.0 GEMM Example to start doing accelerated Linear Algebra on 
 ## Example executions:
     a) Multiply 4096 x 4096 matrices using default CUBLAS math (FP32)
         make ATYPE=float BTYPE=float CTYPE=float
-        ./prog 0 4 $((1024*4)) 2
+        ./prog 0 4 $((2**12)) 2 1
 
     b) Multiply 4096 x 4096 matrices using Tensor Cores with mixed precision
         make ATYPE=half BTYPE=half CTYPE=float
-        ./prog 0 4 $((1024*4)) 4
+        ./prog 0 4 $((2**12)) 4 1
 
     c) Multiply 4096 x 4096 matrices using Tensor Cores full FP16
         make ATYPE=half BTYPE=half CTYPE=half
-        ./prog 0 4 $((1024*4)) 0
+        ./prog 0 4 $((2**12)) 0 1
