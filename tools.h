@@ -11,6 +11,20 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
+// PRINT GPU INFO
+void print_gpu_specs(int dev){
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, dev);
+    printf("Device Number: %d\n", dev);
+    printf("  Device name:                  %s\n", prop.name);
+    printf("  Memory:                       %i MB\n", prop.totalGlobalMem/(1024*1024));
+    printf("  Multiprocessor Count:         %d\n", prop.multiProcessorCount);
+    printf("  Concurrent Kernels:           %d\n", prop.concurrentKernels);
+    printf("  Memory Clock Rate:            %d MHz\n", prop.memoryClockRate);
+    printf("  Memory Bus Width:             %d bits\n", prop.memoryBusWidth);
+    printf("  Peak Memory Bandwidth:        %f GB/s\n\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+}
+
 // CUBLAS ALGORITHMS
 #define NUM_CUBLAS_ALGS 2
 cublasGemmAlgo_t cublasAlgs[NUM_CUBLAS_ALGS] = {CUBLAS_GEMM_DEFAULT, 

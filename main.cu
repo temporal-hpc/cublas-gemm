@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
   const char* dtypeCPU = cblasDataTypesStr[cpuhmap(bitsCPU)];
 
   gpuErrchk(cudaSetDevice(dev));
+  print_gpu_specs(dev);
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
