@@ -289,17 +289,16 @@ int main(int argc, char **argv) {
 
 
   /* 9) Check result against reference */
-  if(mode == 1){
+  if(mode == 1 && N <= LIM_CHECK_N){
       printf("Verify result.................."); fflush(stdout);
       t1 = omp_get_wtime();
-      if(N < LIM_CHECK_N){
-          cblasC = cblas_compute<CPUTYPE>(N, nelem, alpha, beta, h_A, h_B, dtypeCPU, false); 
-      }
+      cblasC = cblas_compute<CPUTYPE>(N, nelem, alpha, beta, h_A, h_B, dtypeCPU, false); 
       double maxError = computeMaxError<CPUTYPE>(cblasC, h_C, N); 
       t2 = omp_get_wtime();
       printf("done: %f secs (maxError = %f%%, TOL = %f%%)\n%s\n\n", t2-t1,
               maxError*100.0, TOLERR*100.0, 
               maxError <= TOLERR ? (const char*)"pass" : (const char*) "failed"); fflush(stdout);
+      free(cblasC);
   }
 
 

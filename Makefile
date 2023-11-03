@@ -10,6 +10,6 @@ PINNED=noPINNED
 INCS=-I${INCDIR} 
 LIBS=-L${LIBDIR} 
 DEFS=-DATYPE=${ATYPE} -DBTYPE=${BTYPE} -DCTYPE=${CTYPE} -D${CPUFP64} -D${PINNED} 
-CUDAOPTS=-arch=${ARCH} -O3 -lcublas -lcblas -Xcompiler -fopenmp 
+CUDAOPTS=-arch=${ARCH} -O3 -lcublas -lopenblas -Xcompiler -fopenmp 
 all: 
 	nvcc ${CUDAOPTS} ${INCS} ${LIBS} ${DEFS} main.cu -o prog
